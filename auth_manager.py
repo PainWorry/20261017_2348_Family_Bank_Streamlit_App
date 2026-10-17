@@ -71,22 +71,37 @@ DEFAULT_USERS: Dict[str, Dict[str, Any]] = {
         # Default: dad1234
         "password_hash": "$2b$12$A9987hrlN1jnEKzBmXs3leo9qyTgbAmzaTPEGwyZIKBjjX3diHvHi"
     },
-    "member1": {
-        "display_name": "Member 1",
+    "herren": {
+        "display_name": "Herren",
         "role": "member",
         # Default: pass1234
+        "password_hash": "$2b$12$KKhZTeF6lTzbFkOAapqAleCt576VYTpzqcHSFJVEFT/F3MDvNXX3C"
+    },
+    "irene": {
+        "display_name": "Irene",
+        "role": "member",
+        # Default: pass1234
+        "password_hash": "$2b$12$KKhZTeF6lTzbFkOAapqAleCt576VYTpzqcHSFJVEFT/F3MDvNXX3C"
+    },
+    "prim": {
+        "display_name": "Prim",
+        "role": "member",
+        # Default: pass1234
+        "password_hash": "$2b$12$KKhZTeF6lTzbFkOAapqAleCt576VYTpzqcHSFJVEFT/F3MDvNXX3C"
+    },
+    "member1": {
+        "display_name": "Member 1 (Irene)",
+        "role": "member",
         "password_hash": "$2b$12$KKhZTeF6lTzbFkOAapqAleCt576VYTpzqcHSFJVEFT/F3MDvNXX3C"
     },
     "member2": {
-        "display_name": "Member 2",
+        "display_name": "Member 2 (Herren)",
         "role": "member",
-        # Default: pass1234
         "password_hash": "$2b$12$KKhZTeF6lTzbFkOAapqAleCt576VYTpzqcHSFJVEFT/F3MDvNXX3C"
     },
     "member3": {
-        "display_name": "Member 3",
+        "display_name": "Member 3 (Prim)",
         "role": "member",
-        # Default: pass1234
         "password_hash": "$2b$12$KKhZTeF6lTzbFkOAapqAleCt576VYTpzqcHSFJVEFT/F3MDvNXX3C"
     }
 }

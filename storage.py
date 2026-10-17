@@ -134,17 +134,23 @@ class SQLiteLedger:
                 raw_tx_id = str(r.get("Transaction ID") or r.get("tx_id") or "").strip()
                 user_id = str(r.get("Member ID") or r.get("user_id") or "").strip().lower()
                 
-                # Fuzzy resolve member ID from name if needed
-                if not user_id or user_id not in ["member1", "member2", "member3", "dad"]:
+                valid_ids = ["irene", "herren", "prim", "member1", "member2", "member3", "dad"]
+                if not user_id or user_id not in valid_ids:
                     member_name = str(r.get("Member Name") or r.get("Member") or r.get("Name") or "").strip().lower()
-                    if "1" in member_name or "หนึ่ง" in member_name:
-                        user_id = "member1"
-                    elif "2" in member_name or "สอง" in member_name:
-                        user_id = "member2"
-                    elif "3" in member_name or "สาม" in member_name:
-                        user_id = "member3"
+                    if "herren" in member_name or "2" in member_name or "สอง" in member_name:
+                        user_id = "herren"
+                    elif "irene" in member_name or "1" in member_name or "หนึ่ง" in member_name:
+                        user_id = "irene"
+                    elif "prim" in member_name or "3" in member_name or "สาม" in member_name:
+                        user_id = "prim"
                     else:
-                        user_id = "member1"
+                        user_id = "herren"
+                elif user_id == "member1":
+                    user_id = "irene"
+                elif user_id == "member2":
+                    user_id = "herren"
+                elif user_id == "member3":
+                    user_id = "prim"
 
                 # Resolve transaction type
                 raw_type = str(r.get("Type") or r.get("tx_type") or "DEPOSIT").strip().upper()
