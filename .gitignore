@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.py[cod]
+*.db
+uploads/slips/*.png
+uploads/slips/*.jpg
+uploads/slips/*.jpeg
+uploads/slips/*.webp
+.streamlit/secrets.toml

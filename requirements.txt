@@ -1,0 +1,8 @@
+streamlit>=1.35.0
+bcrypt>=4.1.2
+pyjwt>=2.8.0
+extra-streamlit-components>=0.1.71
+pandas>=2.0.0
+pillow>=10.0.0
+gspread>=6.0.0
+google-auth>=2.20.0
