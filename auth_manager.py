@@ -88,21 +88,6 @@ DEFAULT_USERS: Dict[str, Dict[str, Any]] = {
         "role": "member",
         # Default: pass1234
         "password_hash": "$2b$12$KKhZTeF6lTzbFkOAapqAleCt576VYTpzqcHSFJVEFT/F3MDvNXX3C"
-    },
-    "member1": {
-        "display_name": "Member 1 (Irene)",
-        "role": "member",
-        "password_hash": "$2b$12$KKhZTeF6lTzbFkOAapqAleCt576VYTpzqcHSFJVEFT/F3MDvNXX3C"
-    },
-    "member2": {
-        "display_name": "Member 2 (Herren)",
-        "role": "member",
-        "password_hash": "$2b$12$KKhZTeF6lTzbFkOAapqAleCt576VYTpzqcHSFJVEFT/F3MDvNXX3C"
-    },
-    "member3": {
-        "display_name": "Member 3 (Prim)",
-        "role": "member",
-        "password_hash": "$2b$12$KKhZTeF6lTzbFkOAapqAleCt576VYTpzqcHSFJVEFT/F3MDvNXX3C"
     }
 }
 

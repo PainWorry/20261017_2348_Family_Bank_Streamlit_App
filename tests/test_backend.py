@@ -31,7 +31,7 @@ class TestFamilyBankBackend(unittest.TestCase):
         self.assertFalse(verify_password("wrong_password", dad_hash))
 
         # Verify Member default credentials
-        m1_hash = DEFAULT_USERS["member1"]["password_hash"]
+        m1_hash = DEFAULT_USERS["irene"]["password_hash"]
         self.assertTrue(verify_password("pass1234", m1_hash))
         self.assertFalse(verify_password("wrong_password", m1_hash))
 
@@ -42,7 +42,7 @@ class TestFamilyBankBackend(unittest.TestCase):
         self.assertTrue(slip_uri.startswith("data:image/jpeg;base64,"))
 
         tx_id = self.ledger.create_transaction(
-            user_id="member1",
+            user_id="irene",
             tx_type=TransactionType.DEPOSIT.value,
             amount=1000.0,
             slip_data_uri=slip_uri,
@@ -53,8 +53,8 @@ class TestFamilyBankBackend(unittest.TestCase):
 
         # Verify initial pending state
         sums = {s.user_id: s for s in self.ledger.get_account_summaries(DEFAULT_USERS)}
-        self.assertEqual(sums["member1"].confirmed_balance, 0.0)
-        self.assertEqual(sums["member1"].pending_deposits, 1000.0)
+        self.assertEqual(sums["irene"].confirmed_balance, 0.0)
+        self.assertEqual(sums["irene"].pending_deposits, 1000.0)
 
         # 2. Dad approves the deposit
         updated = self.ledger.update_transaction_status(
@@ -66,14 +66,14 @@ class TestFamilyBankBackend(unittest.TestCase):
 
         # Verify confirmed balance updated
         sums_after = {s.user_id: s for s in self.ledger.get_account_summaries(DEFAULT_USERS)}
-        self.assertEqual(sums_after["member1"].confirmed_balance, 1000.0)
-        self.assertEqual(sums_after["member1"].pending_deposits, 0.0)
-        self.assertEqual(sums_after["member1"].total_deposited, 1000.0)
+        self.assertEqual(sums_after["irene"].confirmed_balance, 1000.0)
+        self.assertEqual(sums_after["irene"].pending_deposits, 0.0)
+        self.assertEqual(sums_after["irene"].total_deposited, 1000.0)
 
     def test_withdrawal_with_slip(self):
         # Seed initial confirmed deposit
         self.ledger.create_transaction(
-            user_id="member2",
+            user_id="herren",
             tx_type=TransactionType.DEPOSIT.value,
             amount=2000.0,
             status=TransactionStatus.APPROVED.value,
@@ -86,7 +86,7 @@ class TestFamilyBankBackend(unittest.TestCase):
         self.assertTrue(payout_uri.startswith("data:image/png;base64,"))
 
         self.ledger.create_transaction(
-            user_id="member2",
+            user_id="herren",
             tx_type=TransactionType.WITHDRAWAL.value,
             amount=500.0,
             slip_data_uri=payout_uri,
@@ -97,21 +97,21 @@ class TestFamilyBankBackend(unittest.TestCase):
 
         # Verify balance deduction
         sums = {s.user_id: s for s in self.ledger.get_account_summaries(DEFAULT_USERS)}
-        self.assertEqual(sums["member2"].confirmed_balance, 1500.0)
-        self.assertEqual(sums["member2"].total_deposited, 2000.0)
-        self.assertEqual(sums["member2"].total_withdrawn, 500.0)
+        self.assertEqual(sums["herren"].confirmed_balance, 1500.0)
+        self.assertEqual(sums["herren"].total_deposited, 2000.0)
+        self.assertEqual(sums["herren"].total_withdrawn, 500.0)
 
     def test_vault_metrics(self):
-        # Member 1 deposits 500
+        # Irene deposits 500
         self.ledger.create_transaction(
-            user_id="member1",
+            user_id="irene",
             tx_type=TransactionType.DEPOSIT.value,
             amount=500.0,
             status=TransactionStatus.APPROVED.value
         )
-        # Member 3 deposits 300
+        # Prim deposits 300
         self.ledger.create_transaction(
-            user_id="member3",
+            user_id="prim",
             tx_type=TransactionType.DEPOSIT.value,
             amount=300.0,
             status=TransactionStatus.APPROVED.value
@@ -146,8 +146,8 @@ class TestFamilyBankBackend(unittest.TestCase):
         self.assertEqual(imported, 2)
 
         sums = {s.user_id: s for s in self.ledger.get_account_summaries(DEFAULT_USERS)}
-        self.assertEqual(sums["member1"].confirmed_balance, 1500.0)
-        self.assertEqual(sums["member2"].confirmed_balance, -300.0)
+        self.assertEqual(sums["irene"].confirmed_balance, 1500.0)
+        self.assertEqual(sums["herren"].confirmed_balance, -300.0)
 
         # Test duplicate import rejection
         imported_again = self.ledger.import_transactions(old_data)

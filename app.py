@@ -188,11 +188,13 @@ if role == "admin":
             current_avail = member_summary.confirmed_balance if member_summary else 0.0
             st.info(f"Current Available Confirmed Balance for {member_options[sel_member]}: **{current_avail:,.2f} THB**")
 
+            max_payout_limit = max(0.0, float(current_avail))
+            default_payout_val = min(100.0, max_payout_limit) if max_payout_limit >= 1.0 else 0.0
             payout_amount = st.number_input(
                 "Payout Amount (THB)",
-                min_value=1.0,
-                max_value=max(1.0, float(current_avail)),
-                value=min(100.0, float(current_avail)),
+                min_value=0.0,
+                max_value=max_payout_limit,
+                value=default_payout_val,
                 step=50.0
             )
             payout_note = st.text_input("Payout Reason / Memo", placeholder="e.g. Tuition fee, emergency expense, cash request")
@@ -466,11 +468,13 @@ else:
 
         with st.form("member_withdrawal_form", clear_on_submit=True):
             st.info(f"Available Balance: **{my_confirmed:,.2f} THB**")
+            max_req_limit = max(0.0, float(my_confirmed))
+            default_req_val = min(100.0, max_req_limit) if max_req_limit >= 1.0 else 0.0
             req_amount = st.number_input(
                 "Requested Amount (THB)",
-                min_value=1.0,
-                max_value=max(1.0, float(my_confirmed)),
-                value=min(100.0, float(my_confirmed)),
+                min_value=0.0,
+                max_value=max_req_limit,
+                value=default_req_val,
                 step=50.0
             )
             bank_destination = st.text_input("Destination Account", placeholder="Bank Name & Account Number or PromptPay ID")
