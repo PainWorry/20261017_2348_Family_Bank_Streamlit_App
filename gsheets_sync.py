@@ -186,6 +186,19 @@ class GoogleSheetsSyncEngine:
         except Exception as e:
             return False, f"Google Sheet sync error: {str(e)}"
 
+    def fetch_transactions_from_sheet(self) -> Tuple[List[Dict[str, Any]], str]:
+        """Reads historical transactions from the Transactions_Ledger worksheet."""
+        if not self.is_active():
+            return [], self.error_message or "Google Sheets sync is not active."
+
+        try:
+            ws_tx = self.spreadsheet.worksheet("Transactions_Ledger")
+            records = ws_tx.get_all_records()
+            return records, f"Fetched {len(records)} records from Google Sheet: '{self.sheet_name}'"
+        except Exception as e:
+            return [], f"Failed to read from Google Sheet: {str(e)}"
+
+
 
 # Singleton Google Sheets Sync Engine
 _gsheet_engine: Optional[GoogleSheetsSyncEngine] = None

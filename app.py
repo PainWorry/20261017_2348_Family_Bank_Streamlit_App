@@ -335,6 +335,54 @@ if role == "admin":
                 Once configured, every transaction is mirrored instantly to the Google Sheet.
                 """)
 
+        st.write("---")
+        st.subheader("Import Historical Records (Google Sheet / Excel / CSV)")
+        st.caption("Bring in your existing family deposit/withdrawal records so you don't start from zero.")
+
+        imp_col1, imp_col2 = st.columns(2)
+
+        # 1. Pull from connected Google Sheet
+        with imp_col1:
+            st.markdown("#### Option A: Pull from Google Sheet")
+            st.write("Read existing records directly from the `Transactions_Ledger` sheet.")
+            if gs_engine.is_active():
+                if st.button("Pull Records from Google Sheet Now", use_container_width=True):
+                    records, msg = gs_engine.fetch_transactions_from_sheet()
+                    if records:
+                        imported = ledger.import_transactions(records, reviewer_id=user_id)
+                        st.success(f"Successfully imported {imported} new historical records from Google Sheet!")
+                        st.rerun()
+                    else:
+                        st.info(f"No records found: {msg}")
+            else:
+                st.info("Google Sheet is not connected yet. Connect credentials in secrets to pull directly.")
+
+        # 2. Upload Excel / CSV file
+        with imp_col2:
+            st.markdown("#### Option B: Upload Old Excel / CSV File")
+            uploaded_old_file = st.file_uploader(
+                "Upload your existing family Excel (.xlsx, .csv)",
+                type=["xlsx", "xls", "csv"],
+                key="old_excel_uploader"
+            )
+            if uploaded_old_file:
+                try:
+                    if uploaded_old_file.name.endswith(".csv"):
+                        df_old = pd.read_csv(uploaded_old_file)
+                    else:
+                        df_old = pd.read_excel(uploaded_old_file)
+                    
+                    st.write(f"Previewing {len(df_old)} rows from uploaded file:")
+                    st.dataframe(df_old.head(3), use_container_width=True)
+
+                    if st.button("Confirm & Import Excel Records into Vault", use_container_width=True, type="primary"):
+                        records_list = df_old.to_dict(orient="records")
+                        imported = ledger.import_transactions(records_list, reviewer_id=user_id)
+                        st.success(f"Successfully imported {imported} historical transactions into the family vault!")
+                        st.rerun()
+                except Exception as ex:
+                    st.error(f"Error reading file: {str(ex)}")
+
 # ==========================================
 # MEMBER VIEW (CHILD 1, 2, OR 3)
 # ==========================================

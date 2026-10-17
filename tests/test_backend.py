@@ -120,6 +120,40 @@ class TestFamilyBankBackend(unittest.TestCase):
         self.assertEqual(metrics["total_vault_confirmed"], 800.0)
         self.assertEqual(metrics["member_count"], 3)
 
+    def test_import_historical_transactions(self):
+        # Simulate old records from Excel/Google Sheet
+        old_data = [
+            {
+                "Transaction ID": "legacy_001",
+                "Timestamp": "2026-09-01 10:00:00",
+                "Member Name": "Member 1",
+                "Type": "DEPOSIT",
+                "Amount": 1500.0,
+                "Status": "APPROVED",
+                "Notes": "Old September deposit"
+            },
+            {
+                "Transaction ID": "legacy_002",
+                "Timestamp": "2026-09-15 14:00:00",
+                "Member Name": "Member 2",
+                "Type": "WITHDRAWAL",
+                "Amount": 300.0,
+                "Status": "APPROVED",
+                "Notes": "Old withdrawal"
+            }
+        ]
+        imported = self.ledger.import_transactions(old_data)
+        self.assertEqual(imported, 2)
+
+        sums = {s.user_id: s for s in self.ledger.get_account_summaries(DEFAULT_USERS)}
+        self.assertEqual(sums["member1"].confirmed_balance, 1500.0)
+        self.assertEqual(sums["member2"].confirmed_balance, -300.0)
+
+        # Test duplicate import rejection
+        imported_again = self.ledger.import_transactions(old_data)
+        self.assertEqual(imported_again, 0)
+
 
 if __name__ == "__main__":
     unittest.main()
+

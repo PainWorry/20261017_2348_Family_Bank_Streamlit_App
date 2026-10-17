@@ -121,6 +121,81 @@ class SQLiteLedger:
             self._try_gsheets_sync()
         return success
 
+    def import_transactions(self, records: List[Dict[str, Any]], reviewer_id: str = "dad") -> int:
+        """Imports transactions from external list or dataframe dicts with duplicate prevention."""
+        import uuid
+        imported_count = 0
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            for r in records:
+                # Resolve transaction ID or generate deterministic hash
+                raw_tx_id = str(r.get("Transaction ID") or r.get("tx_id") or "").strip()
+                user_id = str(r.get("Member ID") or r.get("user_id") or "").strip().lower()
+                
+                # Fuzzy resolve member ID from name if needed
+                if not user_id or user_id not in ["member1", "member2", "member3", "dad"]:
+                    member_name = str(r.get("Member Name") or r.get("Member") or r.get("Name") or "").strip().lower()
+                    if "1" in member_name or "หนึ่ง" in member_name:
+                        user_id = "member1"
+                    elif "2" in member_name or "สอง" in member_name:
+                        user_id = "member2"
+                    elif "3" in member_name or "สาม" in member_name:
+                        user_id = "member3"
+                    else:
+                        user_id = "member1"
+
+                # Resolve transaction type
+                raw_type = str(r.get("Type") or r.get("tx_type") or "DEPOSIT").strip().upper()
+                if "WITHDRAW" in raw_type or "ถอน" in raw_type or "PAYOUT" in raw_type:
+                    tx_type = TransactionType.WITHDRAWAL.value
+                else:
+                    tx_type = TransactionType.DEPOSIT.value
+
+                # Amount
+                try:
+                    amount = abs(float(r.get("Amount (THB)") or r.get("Amount") or r.get("amount") or 0.0))
+                except Exception:
+                    continue
+
+                if amount <= 0:
+                    continue
+
+                # Status
+                raw_status = str(r.get("Status") or r.get("status") or "APPROVED").strip().upper()
+                status = TransactionStatus.APPROVED.value if "APP" in raw_status or "อนุมัติ" in raw_status or "VERIFIED" in raw_status else TransactionStatus.PENDING.value
+
+                timestamp = str(r.get("Timestamp") or r.get("Date") or r.get("created_at") or now_str).strip()
+                notes = str(r.get("Notes") or r.get("notes") or "Imported from historical record").strip()
+                bank_info = str(r.get("Bank Info") or r.get("bank_info") or "").strip()
+
+                if not raw_tx_id:
+                    raw_tx_id = f"imp_{abs(hash(timestamp + user_id + str(amount)))}"
+
+                # Check if exists
+                cursor.execute("SELECT 1 FROM transactions WHERE tx_id = ?", (raw_tx_id,))
+                if cursor.fetchone():
+                    continue
+
+                cursor.execute("""
+                    INSERT INTO transactions (
+                        tx_id, user_id, tx_type, amount, slip_path,
+                        status, created_at, reviewed_at, reviewed_by, notes, bank_info
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    raw_tx_id, user_id, tx_type, amount, None,
+                    status, timestamp, timestamp if status == TransactionStatus.APPROVED.value else None,
+                    reviewer_id, notes, bank_info
+                ))
+                imported_count += 1
+            conn.commit()
+
+        if imported_count > 0:
+            self._try_gsheets_sync()
+
+        return imported_count
+
     def _try_gsheets_sync(self):
         """Asynchronously or safely trigger Google Sheets sync if credentials exist."""
         try:
