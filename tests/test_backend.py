@@ -202,9 +202,11 @@ class TestFamilyBankBackend(unittest.TestCase):
         self.assertTrue(irene_cred["must_change_password"])
         self.assertTrue(verify_password("Kanun1111", irene_cred["password_hash"]))
 
-        # Execute reset all
-        self.ledger.reset_user_to_default("all")
+        # Execute individual reset for dad and prim
+        self.ledger.reset_user_to_default("dad")
         self.assertTrue(verify_password("Papa0000", self.ledger.get_user_credential("dad")["password_hash"]))
+
+        self.ledger.reset_user_to_default("prim")
         self.assertTrue(verify_password("Kia3333", self.ledger.get_user_credential("prim")["password_hash"]))
 
 

@@ -127,8 +127,8 @@ class SQLiteLedger:
             conn.commit()
             return cursor.rowcount > 0
 
-    def reset_user_to_default(self, user_id: str = "all") -> bool:
-        """Emergency break-glass reset of user credentials to official default passwords."""
+    def reset_user_to_default(self, user_id: str) -> bool:
+        """Emergency break-glass reset of a single user credential to official default password."""
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         default_hashes = {
             "dad": "$2b$12$WsyEpUWniWySzou2CriRceAbtzLjAPgScGa2OkKcFM6TbicSHJyC2",
@@ -136,19 +136,18 @@ class SQLiteLedger:
             "irene": "$2b$12$IudY.IKo5g0q1LvaoLPIZONOe0tuWDXCaJ7tMxb7A4ftuiahvBTly",
             "prim": "$2b$12$QsHAGIeTfgYqSy5LbLpbkeUfGK7D656T8JDa3U9ZaqvV/bvK9oka2",
         }
-        targets = ["dad", "herren", "irene", "prim"] if user_id == "all" else [user_id.lower()]
+        uid = user_id.lower().strip()
+        p_hash = default_hashes.get(uid, default_hashes["herren"])
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            for u in targets:
-                p_hash = default_hashes.get(u, default_hashes["herren"])
-                cursor.execute("""
-                    INSERT INTO user_credentials (user_id, password_hash, must_change_password, updated_at)
-                    VALUES (?, ?, 1, ?)
-                    ON CONFLICT(user_id) DO UPDATE SET
-                        password_hash = excluded.password_hash,
-                        must_change_password = 1,
-                        updated_at = excluded.updated_at
-                """, (u, p_hash, now_str))
+            cursor.execute("""
+                INSERT INTO user_credentials (user_id, password_hash, must_change_password, updated_at)
+                VALUES (?, ?, 1, ?)
+                ON CONFLICT(user_id) DO UPDATE SET
+                    password_hash = excluded.password_hash,
+                    must_change_password = 1,
+                    updated_at = excluded.updated_at
+            """, (uid, p_hash, now_str))
             conn.commit()
             return True
 

@@ -281,9 +281,9 @@ class FamilyBankAuth:
                     st.markdown("#### Reset Password")
                     st.caption("ระบบกู้คืนรหัสผ่านฉุกเฉิน ยืนยันด้วยคำว่า 'ท่านไผ่' เพื่อรีเซ็ตกลับเป็นรหัสเริ่มต้น")
                     reset_target = st.selectbox(
-                        "บัญชีที่ต้องการ Reset",
-                        options=["all", "dad", "irene", "prim", "herren"],
-                        format_func=lambda x: "ทุกบัญชี (All Accounts)" if x == "all" else self.users.get(x, {}).get("display_name", x)
+                        "บัญชีที่ต้องการ Reset (เลือกได้ครั้งละ 1 บัญชี)",
+                        options=["dad", "irene", "prim", "herren"],
+                        format_func=lambda x: self.users.get(x, {}).get("display_name", x)
                     )
                     master_key_input = st.text_input(
                         "ท่านไผ่",
@@ -299,7 +299,8 @@ class FamilyBankAuth:
                         if master_key_input.strip() == "ท่านไผ่" or entered == "bear gong":
                             self.ledger.reset_user_to_default(reset_target)
                             st.session_state.show_reset_panel = False
-                            st.success("รีเซ็ตรหัสผ่านสำเร็จ! สามารถเข้าสู่ระบบด้วยรหัสเริ่มต้นได้ทันที")
+                            target_name = self.users.get(reset_target, {}).get("display_name", reset_target)
+                            st.success(f"รีเซ็ตรหัสผ่านสำหรับ {target_name} สำเร็จ! สามารถเข้าสู่ระบบด้วยรหัสเริ่มต้นได้ทันที")
                             st.rerun()
                         else:
                             st.error("คำยืนยันไม่ถูกต้อง กรุณากรอก 'ท่านไผ่' (Hint: bear gong)")
