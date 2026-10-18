@@ -71,7 +71,73 @@ current_user = auth.get_current_user()
 user_id = current_user["user_id"]
 role = current_user["role"]
 display_name = current_user["display_name"]
+must_change = current_user.get("must_change_password", False)
 users_dict = auth.users
+
+# ==========================================
+# FIRST-TIME LOGIN GATE: MANDATORY PASSWORD SETUP
+# ==========================================
+if must_change:
+    st.title("Family Bank Vault")
+    st.warning("Action Required: First-Time Login Security Setup")
+
+    col_l, col_center, col_r = st.columns([1, 2, 1])
+    with col_center:
+        st.markdown(f"### Welcome, {display_name}!")
+        st.info(
+            "For account security, you are required to change your initial default password before entering the bank vault."
+        )
+
+        with st.form("first_time_password_form"):
+            new_pwd = st.text_input("New PIN / Password (min 4 characters)", type="password", key="ft_new_pwd")
+            confirm_pwd = st.text_input("Confirm New PIN / Password", type="password", key="ft_confirm_pwd")
+            activate_btn = st.form_submit_button("Activate Account and Save Password", use_container_width=True, type="primary")
+
+            if activate_btn:
+                if not new_pwd:
+                    st.error("Please enter a new password.")
+                elif new_pwd != confirm_pwd:
+                    st.error("Passwords do not match. Please re-enter to confirm.")
+                else:
+                    ok, msg = auth.change_password(user_id, new_pwd)
+                    if ok:
+                        st.success("Password updated successfully! Welcome to Family Bank Vault.")
+                        st.rerun()
+                    else:
+                        st.error(f"Password update failed: {msg}")
+
+        if st.button("Sign Out / Exit", use_container_width=True):
+            auth.logout()
+
+    st.stop()
+
+# Sidebar: Account info & Voluntary Password Management
+with st.sidebar:
+    st.markdown("### Family Bank Vault")
+    st.write(f"Account: **{display_name}**")
+    st.write(f"Role: `{role.capitalize()}`")
+    st.divider()
+    with st.expander("Account Security"):
+        st.caption("Change your personal password or PIN anytime.")
+        with st.form(f"sidebar_pwd_form_{user_id}"):
+            cur_p = st.text_input("Current Password", type="password", key="side_cur_p")
+            new_p = st.text_input("New Password", type="password", key="side_new_p")
+            conf_p = st.text_input("Confirm New Password", type="password", key="side_conf_p")
+            chg_btn = st.form_submit_button("Update Password", use_container_width=True)
+            if chg_btn:
+                if not new_p:
+                    st.error("Please enter a new password.")
+                elif new_p != conf_p:
+                    st.error("New passwords do not match.")
+                else:
+                    ok, res = auth.change_password(user_id, new_p, old_password=cur_p)
+                    if ok:
+                        st.success("Password successfully changed!")
+                    else:
+                        st.error(res)
+    st.divider()
+    if st.button("Sign Out", key="side_signout_btn", use_container_width=True):
+        auth.logout()
 
 # Top Header & Account Bar
 head_col1, head_col2 = st.columns([3, 1])
@@ -82,7 +148,7 @@ with head_col1:
     st.caption(f"Authenticated as: **{display_name}** | Access Level: `{role_label}` | {sync_status_text}")
 with head_col2:
     st.write("")
-    if st.button("Sign Out", use_container_width=True):
+    if st.button("Sign Out", key="top_signout_btn", use_container_width=True):
         auth.logout()
 
 st.divider()

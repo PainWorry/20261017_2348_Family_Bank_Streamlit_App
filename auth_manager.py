@@ -103,6 +103,10 @@ class FamilyBankAuth:
         self.cookie_expiry_days = auth_cfg.get("cookie_expiry_days", 30)
         self.users = dict(DEFAULT_USERS)
         
+        # Lazy load ledger storage engine
+        from storage import get_ledger
+        self.ledger = get_ledger()
+
         # Merge any custom users from secrets.toml
         configured_users = auth_cfg.get("users", {})
         for u_id, u_info in configured_users.items():
@@ -128,6 +132,7 @@ class FamilyBankAuth:
             "sub": username,
             "display_name": user_data.get("display_name", username),
             "role": user_data.get("role", "member"),
+            "must_change_password": user_data.get("must_change_password", False),
             "exp": int(time.time()) + (self.cookie_expiry_days * 86400)
         }
         return jwt.encode(payload, self.cookie_secret, algorithm="HS256")
@@ -142,8 +147,13 @@ class FamilyBankAuth:
             return None
 
     def get_current_user(self) -> Optional[Dict[str, Any]]:
-        """Resolves authenticated user from session state or signed browser cookie."""
+        """Resolves authenticated user from session state or signed browser cookie with live DB sync."""
         if "auth_user" in st.session_state and st.session_state.auth_user:
+            uid = st.session_state.auth_user.get("user_id")
+            if uid:
+                cred = self.ledger.get_user_credential(uid)
+                if cred:
+                    st.session_state.auth_user["must_change_password"] = cred["must_change_password"]
             return st.session_state.auth_user
 
         if self.cookie_manager:
@@ -152,11 +162,15 @@ class FamilyBankAuth:
                 if token:
                     payload = self._verify_token(token)
                     if payload and payload.get("sub") in self.users:
-                        user_info = self.users[payload["sub"]]
+                        uid = payload["sub"]
+                        user_info = self.users[uid]
+                        cred = self.ledger.get_user_credential(uid)
+                        must_change = cred["must_change_password"] if cred else payload.get("must_change_password", False)
                         st.session_state.auth_user = {
-                            "user_id": payload["sub"],
+                            "user_id": uid,
                             "display_name": user_info["display_name"],
-                            "role": user_info["role"]
+                            "role": user_info["role"],
+                            "must_change_password": must_change
                         }
                         return st.session_state.auth_user
                     else:
@@ -193,36 +207,93 @@ class FamilyBankAuth:
                     time.sleep(0.4)
 
                     user_record = self.users.get(selected_user)
-                    if user_record and verify_password(password_input, user_record["password_hash"]):
-                        user_session = {
-                            "user_id": selected_user,
-                            "display_name": user_record["display_name"],
-                            "role": user_record["role"]
-                        }
-                        st.session_state.auth_user = user_session
-                        if self.cookie_manager:
-                            try:
-                                signed_token = self._create_token(selected_user, user_record)
-                                self.cookie_manager.set(
-                                    cookie=self.cookie_name,
-                                    val=signed_token,
-                                    expires_at=time.time() + (self.cookie_expiry_days * 86400)
-                                )
-                            except Exception:
-                                pass
-                        st.success(f"Welcome back, {user_record['display_name']}!")
-                        st.rerun()
+                    if user_record:
+                        # Check SQLite ledger for latest password hash & must_change status
+                        cred = self.ledger.get_user_credential(selected_user)
+                        expected_hash = cred["password_hash"] if cred else user_record["password_hash"]
+                        must_change = cred["must_change_password"] if cred else True
+
+                        if verify_password(password_input, expected_hash):
+                            user_session = {
+                                "user_id": selected_user,
+                                "display_name": user_record["display_name"],
+                                "role": user_record["role"],
+                                "must_change_password": must_change
+                            }
+                            st.session_state.auth_user = user_session
+                            if self.cookie_manager:
+                                try:
+                                    signed_token = self._create_token(selected_user, user_session)
+                                    self.cookie_manager.set(
+                                        cookie=self.cookie_name,
+                                        val=signed_token,
+                                        expires_at=time.time() + (self.cookie_expiry_days * 86400)
+                                    )
+                                except Exception:
+                                    pass
+                            st.success(f"Welcome back, {user_record['display_name']}!")
+                            st.rerun()
+                        else:
+                            st.error("Invalid PIN or Password. Access denied.")
+                            return False
                     else:
-                        st.error("Invalid PIN or Password. Access denied.")
+                        st.error("Invalid account selected.")
                         return False
 
             st.info(
                 "Initial Passwords:\n"
                 "- Dad (Admin): `dad1234`\n"
-                "- Herren / Irene / Prim: `pass1234`"
+                "- Herren / Irene / Prim: `pass1234`\n\n"
+                "Note: You will be prompted to set your personal PIN/password upon first login."
             )
 
         return False
+
+    def change_password(self, user_id: str, new_password: str, old_password: Optional[str] = None) -> tuple[bool, str]:
+        """Validates and updates password for user_id in SQLite and active session state."""
+        user_id = user_id.lower()
+        clean_pwd = (new_password or "").strip()
+        
+        if len(clean_pwd) < 4:
+            return False, "Password must be at least 4 characters long."
+
+        if clean_pwd in ["dad1234", "pass1234"]:
+            return False, "Cannot reuse the initial temporary password ('dad1234' or 'pass1234'). Please enter a personal password."
+
+        cred = self.ledger.get_user_credential(user_id)
+        current_hash = cred["password_hash"] if cred else self.users.get(user_id, {}).get("password_hash", "")
+
+        if old_password is not None:
+            if not verify_password(old_password, current_hash):
+                return False, "Current password does not match."
+
+        if verify_password(clean_pwd, current_hash):
+            return False, "New password cannot be identical to the previous password."
+
+        new_hash = hash_password(clean_pwd)
+        updated = self.ledger.update_user_password(user_id, new_hash, must_change=False)
+        if not updated:
+            return False, "Database error updating password."
+
+        # Keep runtime cache in sync
+        if user_id in self.users:
+            self.users[user_id]["password_hash"] = new_hash
+
+        if "auth_user" in st.session_state and st.session_state.auth_user:
+            if st.session_state.auth_user.get("user_id") == user_id:
+                st.session_state.auth_user["must_change_password"] = False
+                if self.cookie_manager:
+                    try:
+                        updated_token = self._create_token(user_id, st.session_state.auth_user)
+                        self.cookie_manager.set(
+                            cookie=self.cookie_name,
+                            val=updated_token,
+                            expires_at=time.time() + (self.cookie_expiry_days * 86400)
+                        )
+                    except Exception:
+                        pass
+
+        return True, "Password updated successfully."
 
     def logout(self):
         """Purges local session state and invalidates persistent browser cookie."""

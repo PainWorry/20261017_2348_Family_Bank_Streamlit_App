@@ -49,7 +49,64 @@ class SQLiteLedger:
                     bank_info TEXT
                 )
             """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS user_credentials (
+                    user_id TEXT PRIMARY KEY,
+                    password_hash TEXT NOT NULL,
+                    must_change_password INTEGER DEFAULT 1,
+                    updated_at TEXT NOT NULL
+                )
+            """)
             conn.commit()
+
+            # Seed default users if not already present
+            now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            default_hashes = {
+                "dad": "$2b$12$A9987hrlN1jnEKzBmXs3leo9qyTgbAmzaTPEGwyZIKBjjX3diHvHi",
+                "herren": "$2b$12$KKhZTeF6lTzbFkOAapqAleCt576VYTpzqcHSFJVEFT/F3MDvNXX3C",
+                "irene": "$2b$12$KKhZTeF6lTzbFkOAapqAleCt576VYTpzqcHSFJVEFT/F3MDvNXX3C",
+                "prim": "$2b$12$KKhZTeF6lTzbFkOAapqAleCt576VYTpzqcHSFJVEFT/F3MDvNXX3C",
+            }
+            for u_id, p_hash in default_hashes.items():
+                cursor.execute("""
+                    INSERT OR IGNORE INTO user_credentials (user_id, password_hash, must_change_password, updated_at)
+                    VALUES (?, ?, 1, ?)
+                """, (u_id, p_hash, now_str))
+            conn.commit()
+
+    def get_user_credential(self, user_id: str) -> Optional[Dict[str, Any]]:
+        """Retrieves user password hash and must_change_password status."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT user_id, password_hash, must_change_password, updated_at FROM user_credentials WHERE user_id = ?",
+                (user_id.lower(),)
+            )
+            row = cursor.fetchone()
+            if row:
+                return {
+                    "user_id": row["user_id"],
+                    "password_hash": row["password_hash"],
+                    "must_change_password": bool(row["must_change_password"]),
+                    "updated_at": row["updated_at"]
+                }
+            return None
+
+    def update_user_password(self, user_id: str, new_password_hash: str, must_change: bool = False) -> bool:
+        """Updates user password hash and clears must_change_password flag upon successful change."""
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO user_credentials (user_id, password_hash, must_change_password, updated_at)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(user_id) DO UPDATE SET
+                    password_hash = excluded.password_hash,
+                    must_change_password = excluded.must_change_password,
+                    updated_at = excluded.updated_at
+            """, (user_id.lower(), new_password_hash, 1 if must_change else 0, now_str))
+            conn.commit()
+            return cursor.rowcount > 0
 
     def save_slip_image(self, file_bytes: bytes, filename: str, tx_id: str) -> str:
         """Saves uploaded slip to disk and returns relative path and base64 encoded string for fail-safe display."""

@@ -153,7 +153,32 @@ class TestFamilyBankBackend(unittest.TestCase):
         imported_again = self.ledger.import_transactions(old_data)
         self.assertEqual(imported_again, 0)
 
+    def test_user_credentials_initial_state(self):
+        # Verify default users are seeded with must_change_password=True
+        dad_cred = self.ledger.get_user_credential("dad")
+        self.assertIsNotNone(dad_cred)
+        self.assertTrue(dad_cred["must_change_password"])
+
+        herren_cred = self.ledger.get_user_credential("herren")
+        self.assertIsNotNone(herren_cred)
+        self.assertTrue(herren_cred["must_change_password"])
+
+    def test_update_user_password(self):
+        from auth_manager import hash_password
+        new_hash = hash_password("MyNewSecretPin999")
+        
+        # Update Herren's password
+        success = self.ledger.update_user_password("herren", new_hash, must_change=False)
+        self.assertTrue(success)
+
+        # Verify must_change_password is now False
+        cred = self.ledger.get_user_credential("herren")
+        self.assertFalse(cred["must_change_password"])
+        self.assertTrue(verify_password("MyNewSecretPin999", cred["password_hash"]))
+        self.assertFalse(verify_password("pass1234", cred["password_hash"]))
+
 
 if __name__ == "__main__":
     unittest.main()
+
 
