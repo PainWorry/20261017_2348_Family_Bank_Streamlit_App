@@ -20,18 +20,18 @@ SLIPS_DIR = BASE_DIR / "uploads" / "slips"
 
 
 class SQLiteLedger:
-    def __init__(self, db_path: Path = DB_PATH, slips_dir: Path = SLIPS_DIR):
+    def __init__(self, db_path: Path = DB_PATH, slips_dir: Path = SLIPS_DIR, auto_seed: bool = True):
         self.db_path = db_path
         self.slips_dir = slips_dir
         self.slips_dir.mkdir(parents=True, exist_ok=True)
-        self.init_db()
+        self.init_db(auto_seed=auto_seed)
 
     def _get_connection(self) -> sqlite3.Connection:
         conn = sqlite3.connect(str(self.db_path))
         conn.row_factory = sqlite3.Row
         return conn
 
-    def init_db(self):
+    def init_db(self, auto_seed: bool = True):
         with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
@@ -62,10 +62,10 @@ class SQLiteLedger:
             # Seed default users if not already present
             now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             default_hashes = {
-                "dad": "$2b$12$A9987hrlN1jnEKzBmXs3leo9qyTgbAmzaTPEGwyZIKBjjX3diHvHi",
-                "herren": "$2b$12$KKhZTeF6lTzbFkOAapqAleCt576VYTpzqcHSFJVEFT/F3MDvNXX3C",
-                "irene": "$2b$12$KKhZTeF6lTzbFkOAapqAleCt576VYTpzqcHSFJVEFT/F3MDvNXX3C",
-                "prim": "$2b$12$KKhZTeF6lTzbFkOAapqAleCt576VYTpzqcHSFJVEFT/F3MDvNXX3C",
+                "dad": "$2b$12$WsyEpUWniWySzou2CriRceAbtzLjAPgScGa2OkKcFM6TbicSHJyC2",
+                "herren": "$2b$12$6oC0El9xuXM2KLf5KZDxl.8mkcDX7ts6LwkoeiAsC/O6cW7VNNGeK",
+                "irene": "$2b$12$IudY.IKo5g0q1LvaoLPIZONOe0tuWDXCaJ7tMxb7A4ftuiahvBTly",
+                "prim": "$2b$12$QsHAGIeTfgYqSy5LbLpbkeUfGK7D656T8JDa3U9ZaqvV/bvK9oka2",
             }
             for u_id, p_hash in default_hashes.items():
                 cursor.execute("""
@@ -73,6 +73,25 @@ class SQLiteLedger:
                     VALUES (?, ?, 1, ?)
                 """, (u_id, p_hash, now_str))
             conn.commit()
+
+        # Auto-seed transactions from standardized_family_ledger.csv on fresh boot (e.g. Streamlit Cloud)
+        if auto_seed:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT COUNT(*) FROM transactions")
+                tx_count = cursor.fetchone()[0]
+
+            if tx_count == 0:
+                csv_path = BASE_DIR / "standardized_family_ledger.csv"
+                if csv_path.exists():
+                    import csv
+                    try:
+                        with open(csv_path, mode="r", encoding="utf-8") as f:
+                            records = list(csv.DictReader(f))
+                            if records:
+                                self.import_transactions(records)
+                    except Exception:
+                        pass
 
     def get_user_credential(self, user_id: str) -> Optional[Dict[str, Any]]:
         """Retrieves user password hash and must_change_password status."""

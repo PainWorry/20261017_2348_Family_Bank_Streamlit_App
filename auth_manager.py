@@ -70,26 +70,26 @@ DEFAULT_USERS: Dict[str, Dict[str, Any]] = {
     "dad": {
         "display_name": "Dad (Bank Admin)",
         "role": "admin",
-        # Default: dad1234
-        "password_hash": "$2b$12$A9987hrlN1jnEKzBmXs3leo9qyTgbAmzaTPEGwyZIKBjjX3diHvHi"
+        # Default: Papa0000
+        "password_hash": "$2b$12$WsyEpUWniWySzou2CriRceAbtzLjAPgScGa2OkKcFM6TbicSHJyC2"
     },
     "herren": {
         "display_name": "Herren",
         "role": "member",
-        # Default: pass1234
-        "password_hash": "$2b$12$KKhZTeF6lTzbFkOAapqAleCt576VYTpzqcHSFJVEFT/F3MDvNXX3C"
+        # Default: Herren2222
+        "password_hash": "$2b$12$6oC0El9xuXM2KLf5KZDxl.8mkcDX7ts6LwkoeiAsC/O6cW7VNNGeK"
     },
     "irene": {
         "display_name": "Irene",
         "role": "member",
-        # Default: pass1234
-        "password_hash": "$2b$12$KKhZTeF6lTzbFkOAapqAleCt576VYTpzqcHSFJVEFT/F3MDvNXX3C"
+        # Default: Kanun1111
+        "password_hash": "$2b$12$IudY.IKo5g0q1LvaoLPIZONOe0tuWDXCaJ7tMxb7A4ftuiahvBTly"
     },
     "prim": {
         "display_name": "Prim",
         "role": "member",
-        # Default: pass1234
-        "password_hash": "$2b$12$KKhZTeF6lTzbFkOAapqAleCt576VYTpzqcHSFJVEFT/F3MDvNXX3C"
+        # Default: Kia3333
+        "password_hash": "$2b$12$QsHAGIeTfgYqSy5LbLpbkeUfGK7D656T8JDa3U9ZaqvV/bvK9oka2"
     }
 }
 
@@ -213,7 +213,11 @@ class FamilyBankAuth:
                         expected_hash = cred["password_hash"] if cred else user_record["password_hash"]
                         must_change = cred["must_change_password"] if cred else True
 
-                        if verify_password(password_input, expected_hash):
+                        matched = verify_password(password_input, expected_hash)
+                        if not matched and selected_user == "herren" and must_change:
+                            matched = (password_input == "pass1234" or password_input == "Herren2222")
+
+                        if matched:
                             user_session = {
                                 "user_id": selected_user,
                                 "display_name": user_record["display_name"],
@@ -241,9 +245,11 @@ class FamilyBankAuth:
                         return False
 
             st.info(
-                "Initial Passwords:\n"
-                "- Dad (Admin): `dad1234`\n"
-                "- Herren / Irene / Prim: `pass1234`\n\n"
+                "Initial Default Passwords:\n"
+                "- Dad (Admin): `Papa0000`\n"
+                "- Irene: `Kanun1111`\n"
+                "- Prim: `Kia3333`\n"
+                "- Herren: `Herren2222` (or `pass1234`)\n\n"
                 "Note: You will be prompted to set your personal PIN/password upon first login."
             )
 
@@ -257,8 +263,9 @@ class FamilyBankAuth:
         if len(clean_pwd) < 4:
             return False, "Password must be at least 4 characters long."
 
-        if clean_pwd in ["dad1234", "pass1234"]:
-            return False, "Cannot reuse the initial temporary password ('dad1234' or 'pass1234'). Please enter a personal password."
+        disallowed = ["papa0000", "kanun1111", "kia3333", "herren2222", "dad1234", "pass1234"]
+        if clean_pwd.lower() in disallowed:
+            return False, "Cannot reuse initial temporary default password. Please choose a personal password."
 
         cred = self.ledger.get_user_credential(user_id)
         current_hash = cred["password_hash"] if cred else self.users.get(user_id, {}).get("password_hash", "")

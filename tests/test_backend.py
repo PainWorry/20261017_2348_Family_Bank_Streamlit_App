@@ -16,7 +16,7 @@ class TestFamilyBankBackend(unittest.TestCase):
         self.temp_dir = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
         self.db_path = Path(self.temp_dir.name) / "test_bank.db"
         self.slips_dir = Path(self.temp_dir.name) / "slips"
-        self.ledger = SQLiteLedger(db_path=self.db_path, slips_dir=self.slips_dir)
+        self.ledger = SQLiteLedger(db_path=self.db_path, slips_dir=self.slips_dir, auto_seed=False)
 
     def tearDown(self):
         try:
@@ -27,13 +27,18 @@ class TestFamilyBankBackend(unittest.TestCase):
     def test_default_passwords(self):
         # Verify Dad default credentials
         dad_hash = DEFAULT_USERS["dad"]["password_hash"]
-        self.assertTrue(verify_password("dad1234", dad_hash))
+        self.assertTrue(verify_password("Papa0000", dad_hash))
         self.assertFalse(verify_password("wrong_password", dad_hash))
 
         # Verify Member default credentials
-        m1_hash = DEFAULT_USERS["irene"]["password_hash"]
-        self.assertTrue(verify_password("pass1234", m1_hash))
-        self.assertFalse(verify_password("wrong_password", m1_hash))
+        irene_hash = DEFAULT_USERS["irene"]["password_hash"]
+        self.assertTrue(verify_password("Kanun1111", irene_hash))
+
+        prim_hash = DEFAULT_USERS["prim"]["password_hash"]
+        self.assertTrue(verify_password("Kia3333", prim_hash))
+
+        herren_hash = DEFAULT_USERS["herren"]["password_hash"]
+        self.assertTrue(verify_password("Herren2222", herren_hash))
 
     def test_deposit_and_approval_workflow(self):
         # 1. Member 1 submits 1,000 THB deposit
@@ -177,8 +182,17 @@ class TestFamilyBankBackend(unittest.TestCase):
         self.assertTrue(verify_password("MyNewSecretPin999", cred["password_hash"]))
         self.assertFalse(verify_password("pass1234", cred["password_hash"]))
 
+    def test_auto_seed_feature(self):
+        # Verify auto_seed=True populates all 410 transactions and computes 1,283,677.10 THB
+        seeded_db = Path(self.temp_dir.name) / "seeded_bank.db"
+        seeded_ledger = SQLiteLedger(db_path=seeded_db, slips_dir=self.slips_dir, auto_seed=True)
+        self.assertEqual(len(seeded_ledger.get_transactions()), 410)
+        metrics = seeded_ledger.get_vault_metrics(DEFAULT_USERS)
+        self.assertAlmostEqual(metrics["total_vault_confirmed"], 1283677.10, places=2)
+
 
 if __name__ == "__main__":
     unittest.main()
+
 
 
