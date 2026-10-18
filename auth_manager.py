@@ -93,6 +93,13 @@ DEFAULT_USERS: Dict[str, Dict[str, Any]] = {
     }
 }
 
+DEFAULT_PASSWORDS_LOOKUP: Dict[str, list] = {
+    "dad": ["Papa0000", "dad1234"],
+    "irene": ["Kanun1111", "pass1234"],
+    "prim": ["Kia3333", "pass1234"],
+    "herren": ["Herren2222", "pass1234"]
+}
+
 
 class FamilyBankAuth:
     def __init__(self):
@@ -214,8 +221,15 @@ class FamilyBankAuth:
                         must_change = cred["must_change_password"] if cred else True
 
                         matched = verify_password(password_input, expected_hash)
-                        if not matched and selected_user == "herren" and must_change:
-                            matched = (password_input == "pass1234" or password_input == "Herren2222")
+                        if not matched:
+                            valid_defaults = DEFAULT_PASSWORDS_LOOKUP.get(selected_user, [])
+                            if password_input in valid_defaults:
+                                matched = True
+                                must_change = True
+                                new_h = hash_password(password_input)
+                                self.ledger.update_user_password(selected_user, new_h, must_change=True)
+                                if selected_user in self.users:
+                                    self.users[selected_user]["password_hash"] = new_h
 
                         if matched:
                             user_session = {
@@ -252,6 +266,43 @@ class FamilyBankAuth:
                 "- Herren: `Herren2222` (or `pass1234`)\n\n"
                 "Note: You will be prompted to set your personal PIN/password upon first login."
             )
+
+            st.divider()
+
+            # Emergency Break-Glass Reset Password
+            if "show_reset_panel" not in st.session_state:
+                st.session_state.show_reset_panel = False
+
+            if st.button("Reset Password", key="toggle_reset_btn", use_container_width=True):
+                st.session_state.show_reset_panel = not st.session_state.show_reset_panel
+
+            if st.session_state.show_reset_panel:
+                with st.form("emergency_reset_password_form"):
+                    st.markdown("#### Reset Password")
+                    st.caption("ระบบกู้คืนรหัสผ่านฉุกเฉิน ยืนยันด้วยคำว่า 'ท่านไผ่' เพื่อรีเซ็ตกลับเป็นรหัสเริ่มต้น")
+                    reset_target = st.selectbox(
+                        "บัญชีที่ต้องการ Reset",
+                        options=["all", "dad", "irene", "prim", "herren"],
+                        format_func=lambda x: "ทุกบัญชี (All Accounts)" if x == "all" else self.users.get(x, {}).get("display_name", x)
+                    )
+                    master_key_input = st.text_input(
+                        "ท่านไผ่",
+                        placeholder="พิมพ์คำว่า ท่านไผ่ เพื่อยืนยัน",
+                        help="Hint: bear gong",
+                        key="master_key_box"
+                    )
+                    st.caption("Hint: **bear gong**")
+                    submit_reset = st.form_submit_button("Confirm Reset Password", type="primary", use_container_width=True)
+
+                    if submit_reset:
+                        entered = master_key_input.strip().lower()
+                        if master_key_input.strip() == "ท่านไผ่" or entered == "bear gong":
+                            self.ledger.reset_user_to_default(reset_target)
+                            st.session_state.show_reset_panel = False
+                            st.success("รีเซ็ตรหัสผ่านสำเร็จ! สามารถเข้าสู่ระบบด้วยรหัสเริ่มต้นได้ทันที")
+                            st.rerun()
+                        else:
+                            st.error("คำยืนยันไม่ถูกต้อง กรุณากรอก 'ท่านไผ่' (Hint: bear gong)")
 
         return False
 

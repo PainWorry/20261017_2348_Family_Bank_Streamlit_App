@@ -190,9 +190,27 @@ class TestFamilyBankBackend(unittest.TestCase):
         metrics = seeded_ledger.get_vault_metrics(DEFAULT_USERS)
         self.assertAlmostEqual(metrics["total_vault_confirmed"], 1283677.10, places=2)
 
+    def test_emergency_reset_user_to_default(self):
+        # Change password first
+        from auth_manager import hash_password
+        self.ledger.update_user_password("irene", hash_password("ChangedPass777"), must_change=False)
+        self.assertFalse(self.ledger.get_user_credential("irene")["must_change_password"])
+
+        # Execute emergency reset
+        self.ledger.reset_user_to_default("irene")
+        irene_cred = self.ledger.get_user_credential("irene")
+        self.assertTrue(irene_cred["must_change_password"])
+        self.assertTrue(verify_password("Kanun1111", irene_cred["password_hash"]))
+
+        # Execute reset all
+        self.ledger.reset_user_to_default("all")
+        self.assertTrue(verify_password("Papa0000", self.ledger.get_user_credential("dad")["password_hash"]))
+        self.assertTrue(verify_password("Kia3333", self.ledger.get_user_credential("prim")["password_hash"]))
+
 
 if __name__ == "__main__":
     unittest.main()
+
 
 
 
